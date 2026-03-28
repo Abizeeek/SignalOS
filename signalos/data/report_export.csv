@@ -1,0 +1,2 @@
+date,mode,trackedMinutes,signalMinutes,noiseMinutes,snr,leverageScore,pis,dwi,operatorScore
+2026-03-24,OPERATOR,380,270,80,3.38,100.00,100.00,77.78,94.44

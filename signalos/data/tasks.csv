@@ -1,0 +1,6 @@
+name,signalType,leverageType,taskNature,priorityLevel,tags
+Deep Architecture Work,SIGNAL,HIGH,BUILD,1,arch;core
+Email Triage,NOISE,LOW,MAINTAIN,4,comm
+Code Review,SIGNAL,MEDIUM,MAINTAIN,2,team
+Standup,NEUTRAL,LOW,MAINTAIN,3,team
+Strategic Planning,SIGNAL,HIGH,BUILD,1,strategy

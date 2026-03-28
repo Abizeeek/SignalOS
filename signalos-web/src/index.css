@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-900: #0A0F1C;
+  --color-brand-surface: rgba(255, 255, 255, 0.03);
+  --color-brand-border: rgba(255, 255, 255, 0.08);
+
+  --color-primary: #6366f1; /* Indigo */
+  --color-primary-glow: rgba(99, 102, 241, 0.4);
+
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-brand-900);
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden; 
+}
+
+/* Glassmorphism utilities */
+@utility glass-panel {
+  background: var(--color-brand-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-brand-border);
+}
+
+@utility text-glow {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Scrollbar styling for a premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

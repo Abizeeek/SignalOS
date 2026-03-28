@@ -1,0 +1,132 @@
+.root {
+    -fx-background-color: #0A0A0A;
+    -fx-font-family: "SF Pro Text", "Helvetica Neue", sans-serif;
+    -fx-text-fill: rgba(255, 255, 255, 0.85);
+}
+
+.title-text {
+    -fx-font-family: "SF Pro Display", "Helvetica Neue", sans-serif;
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.section-header {
+    -fx-font-size: 13px;
+    -fx-text-fill: rgba(255, 255, 255, 0.4);
+    -fx-font-weight: bold;
+    -fx-letter-spacing: 0.08em;
+}
+
+.card {
+    -fx-background-color: #141414;
+    -fx-border-color: rgba(255, 255, 255, 0.08);
+    -fx-border-width: 0.5px;
+    -fx-border-radius: 12px;
+    -fx-background-radius: 12px;
+}
+
+.score-value {
+    -fx-font-family: "SF Mono", "Courier New", monospace;
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+}
+
+.score-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: rgba(255, 255, 255, 0.4);
+    -fx-font-weight: bold;
+    -fx-letter-spacing: 0.1em;
+}
+
+.amber-text {
+    -fx-text-fill: #F5A623;
+}
+.white-text {
+    -fx-text-fill: #FFFFFF;
+}
+.red-text {
+    -fx-text-fill: #FF453A;
+}
+
+/* Insight Cards */
+.insight-card {
+    -fx-background-color: transparent;
+    -fx-padding: 8px;
+    -fx-border-width: 0 0 0 2px;
+}
+
+.insight-critical {
+    -fx-border-color: transparent transparent transparent #FF453A;
+}
+.insight-warning {
+    -fx-border-color: transparent transparent transparent #F5A623;
+}
+.insight-positive {
+    -fx-border-color: transparent transparent transparent #30D158;
+}
+
+.insight-message {
+    -fx-font-size: 14px;
+    -fx-text-fill: rgba(255, 255, 255, 0.85);
+}
+.insight-rec {
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+    -fx-text-fill: rgba(255, 255, 255, 0.5);
+}
+
+/* Chips */
+.mode-chip {
+    -fx-background-color: transparent;
+    -fx-border-color: rgba(255, 255, 255, 0.08);
+    -fx-text-fill: rgba(255, 255, 255, 0.4);
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-padding: 4px 12px;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.mode-chip:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+}
+.mode-chip-active {
+    -fx-background-color: rgba(245, 166, 35, 0.08);
+    -fx-border-color: #F5A623;
+    -fx-text-fill: #F5A623;
+}
+
+/* Tables */
+.table-view {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.table-view .column-header-background {
+    -fx-background-color: transparent;
+}
+.table-view .column-header, .table-view .filler {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-size: 40px;
+}
+.table-view .column-header .label {
+    -fx-font-size: 11px;
+    -fx-text-fill: rgba(255, 255, 255, 0.4);
+    -fx-alignment: center-left;
+}
+.table-row-cell {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.table-row-cell:odd {
+    -fx-background-color: #141414;
+}
+.table-row-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+}
+.table-cell {
+    -fx-text-fill: rgba(255, 255, 255, 0.6);
+    -fx-border-color: transparent;
+    -fx-padding: 8px;
+}

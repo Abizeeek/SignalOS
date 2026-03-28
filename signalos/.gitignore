@@ -1,0 +1,23 @@
+# Maven target directory
+target/
+*.class
+
+# Eclipse project files
+.classpath
+.project
+.settings/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Visual Studio Code
+.vscode/
+
+# Log files and build output
+*.log
+*.txt
+
+# OS generated files
+.DS_Store
+Thumbs.db
