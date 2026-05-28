@@ -3,25 +3,62 @@ package signalos.api;
 import io.javalin.Javalin;
 import signalos.domain.Task;
 import signalos.domain.Session;
+import signalos.domain.DistractionLog;
+import signalos.domain.Transaction;
+import signalos.persistence.DistractionStore;
 import signalos.persistence.TaskStore;
 import signalos.persistence.SessionStore;
+import signalos.persistence.TransactionStore;
+import signalos.persistence.UserStore;
+import signalos.domain.User;
+import signalos.persistence.WarSessionStore;
+import signalos.persistence.EventStore;
+import signalos.domain.FocusWarSession;
 import com.google.gson.Gson;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
+import io.javalin.json.JsonMapper;
+import java.lang.reflect.Type;
 
 public class ApiServer {
     private final TaskStore taskStore;
     private final SessionStore sessionStore;
+    private final DistractionStore distractionStore;
+    private final UserStore userStore;
+    private final TransactionStore transactionStore;
+    private final WarSessionStore warStore;
+    private final EventStore eventStore;
     private final Gson gson = new Gson();
 
-    public ApiServer(TaskStore taskStore, SessionStore sessionStore) {
+    public ApiServer(TaskStore taskStore, SessionStore sessionStore, DistractionStore distractionStore, UserStore userStore, TransactionStore transactionStore, WarSessionStore warStore, EventStore eventStore) {
         this.taskStore = taskStore;
         this.sessionStore = sessionStore;
+        this.distractionStore = distractionStore;
+        this.userStore = userStore;
+        this.transactionStore = transactionStore;
+        this.warStore = warStore;
+        this.eventStore = eventStore;
+    }
+
+    private String getUserId(io.javalin.http.Context ctx) {
+        String userId = ctx.header("X-User-Id");
+        return userId == null ? "default" : userId;
     }
 
     public void start(int port) {
         Javalin app = Javalin.create(config -> {
+            config.jsonMapper(new JsonMapper() {
+                @Override
+                public String toJsonString(Object obj, Type type) {
+                    return gson.toJson(obj);
+                }
+                @Override
+                public <T> T fromJsonString(String json, Type targetType) {
+                    return gson.fromJson(json, targetType);
+                }
+            });
             config.bundledPlugins.enableCors(cors -> {
                 cors.addRule(it -> {
                     it.anyHost();
@@ -31,7 +68,8 @@ public class ApiServer {
 
         // Tasks API GET (Map Java Task to React Task)
         app.get("/api/tasks", ctx -> {
-            List<Map<String, Object>> reactTasks = taskStore.loadAll().stream().map(t -> {
+            String userId = getUserId(ctx);
+            List<Map<String, Object>> reactTasks = taskStore.loadAll(userId).stream().map(t -> {
                 Map<String, Object> map = new java.util.HashMap<>();
                 map.put("id", "t-" + t.getName().hashCode());
                 map.put("name", t.getName());
@@ -42,7 +80,10 @@ public class ApiServer {
                 map.put("priority", "NORMAL");
                 map.put("tags", t.getTags());
                 map.put("estimatedDuration", 60);
-                map.put("completed", false);
+                map.put("completed", t.isCompleted());
+                map.put("dueDate", t.getDueDate());
+                map.put("dueTime", t.getDueTime());
+                map.put("description", t.getDescription());
                 map.put("order", 0);
                 return map;
             }).toList();
@@ -52,15 +93,19 @@ public class ApiServer {
         // Tasks API POST (Map React Task back to Java Task)
         app.post("/api/tasks", ctx -> {
             try {
+                String userId = getUserId(ctx);
                 @SuppressWarnings("unchecked")
                 Map<String, Object> req = gson.fromJson(ctx.body(), Map.class);
                 String name = (String) req.getOrDefault("name", "Unnamed");
                 signalos.domain.SignalType st = signalos.domain.SignalType.valueOf((String) req.getOrDefault("signalType", "SIGNAL"));
                 signalos.domain.LeverageType lt = signalos.domain.LeverageType.valueOf((String) req.getOrDefault("leverageType", "HIGH"));
                 signalos.domain.TaskNature tn = signalos.domain.TaskNature.valueOf((String) req.getOrDefault("taskNature", "DEEP_WORK"));
+                String dueDate = (String) req.getOrDefault("dueDate", "");
+                String dueTime = (String) req.getOrDefault("dueTime", "");
+                String description = (String) req.getOrDefault("description", "");
                 
-                Task newTask = new Task(name, st, lt, tn, 3, List.of());
-                taskStore.save(newTask);
+                Task newTask = new Task(name, st, lt, tn, 3, List.of(), false, dueDate, dueTime, description);
+                taskStore.save(userId, newTask);
                 
                 ctx.status(201).result("Success");
             } catch(Exception e) {
@@ -69,22 +114,152 @@ public class ApiServer {
             }
         });
 
-        // Sessions API
-        app.get("/api/sessions", ctx -> {
-            ctx.json(sessionStore.loadByDate(LocalDate.now()));
+        // Transaction endpoints
+        app.get("/api/transactions", ctx -> {
+            String userId = getUserId(ctx);
+            ctx.json(transactionStore.getTransactions(userId));
         });
 
-        // KPIs API (return basic mock mapping frontend for now to prove backend connection)
+        app.post("/api/transactions", ctx -> {
+            String userId = getUserId(ctx);
+            signalos.domain.Transaction transaction = gson.fromJson(ctx.body(), signalos.domain.Transaction.class);
+            if (transaction.getId() == null || transaction.getId().isEmpty()) {
+                transaction.setId(java.util.UUID.randomUUID().toString());
+            }
+            transaction.setTimestamp(java.time.Instant.now());
+            transactionStore.addTransaction(userId, transaction);
+            ctx.status(201).json(transaction);
+        });
+
+        app.delete("/api/transactions/{id}", ctx -> {
+            String userId = getUserId(ctx);
+            String id = ctx.pathParam("id");
+            transactionStore.deleteTransaction(userId, id);
+            ctx.status(204);
+        });
+
+        // Events API
+        app.get("/api/events", ctx -> {
+            String userId = getUserId(ctx);
+            String dateStr = ctx.queryParam("date");
+            LocalDate date = dateStr != null ? LocalDate.parse(dateStr) : LocalDate.now();
+            ctx.json(eventStore.getEvents(userId, date));
+        });
+
+        app.post("/api/events", ctx -> {
+            String userId = getUserId(ctx);
+            signalos.domain.CalendarEvent event = gson.fromJson(ctx.body(), signalos.domain.CalendarEvent.class);
+            event.setUserId(userId);
+            event.setCreatedAt(java.time.LocalDateTime.now());
+            eventStore.addEvent(event);
+            ctx.status(201).json(event);
+        });
+
+        app.delete("/api/events/{id}", ctx -> {
+            String userId = getUserId(ctx);
+            long id = Long.parseLong(ctx.pathParam("id"));
+            eventStore.deleteEvent(id, userId);
+            ctx.status(204);
+        });
+
+        // Sessions API
+        app.get("/api/sessions", ctx -> {
+            String userId = getUserId(ctx);
+            ctx.json(sessionStore.loadByDate(userId, LocalDate.now()));
+        });
+
+        // KPIs API (return mock KPIs but actual distraction and session numbers)
         app.get("/api/kpis", ctx -> {
-            ctx.json(Map.of(
-                "snr", 4.2,
-                "leverageScore", 85,
-                "priorityIntegrity", 92,
-                "deepWorkIndex", 78,
-                "effectiveFocusTime", 4.5,
-                "attentionResidue", 12,
-                "decisionFatigue", 45
-            ));
+            String userId = getUserId(ctx);
+            LocalDate today = LocalDate.now();
+            List<Session> todaySessions = sessionStore.loadByDate(userId, today);
+            List<DistractionLog> distractions = distractionStore.loadByDate(userId, today);
+            
+            int productiveMins = todaySessions.stream().mapToInt(Session::getDurationMinutes).sum();
+            int distractionMins = distractions.stream().mapToInt(DistractionLog::getDurationMinutes).sum();
+            
+            int totalMins = productiveMins + distractionMins;
+            double timeScore = totalMins == 0 ? 0 : ((double) productiveMins / totalMins) * 100.0;
+            
+            List<Task> userTasks = taskStore.loadAll(userId);
+            long completedTasks = userTasks.stream().filter(Task::isCompleted).count();
+            int totalTasks = userTasks.size();
+            double taskScore = totalTasks == 0 ? 0 : ((double) completedTasks / totalTasks) * 100.0;
+            
+            double productivityScore = (timeScore * 0.6) + (taskScore * 0.4);
+
+            Map<String, Object> kpiData = new java.util.HashMap<>();
+            kpiData.put("productivityScore", Math.round(productivityScore));
+            kpiData.put("snr", 4.2);
+            kpiData.put("leverageScore", 85);
+            kpiData.put("priorityIntegrity", 92);
+            kpiData.put("deepWorkIndex", 78);
+            kpiData.put("effectiveFocusTime", productiveMins / 60.0);
+            kpiData.put("attentionResidue", 12);
+            kpiData.put("decisionFatigue", 45);
+            kpiData.put("screenTime", productiveMins + distractionMins);
+            kpiData.put("distractionTime", distractionMins);
+            kpiData.put("productiveTime", productiveMins);
+            kpiData.put("taskCompletionRate", Math.round(taskScore));
+            
+            ctx.json(kpiData);
+        });
+
+        // Distractions API GET
+        app.get("/api/distractions", ctx -> {
+            String userId = getUserId(ctx);
+            ctx.json(distractionStore.loadByDate(userId, LocalDate.now()));
+        });
+
+        // Distractions API POST
+        app.post("/api/distractions", ctx -> {
+            try {
+                String userId = getUserId(ctx);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> req = gson.fromJson(ctx.body(), Map.class);
+                String source = (String) req.getOrDefault("source", "Unknown");
+                int durationMinutes = ((Double) req.getOrDefault("durationMinutes", 0.0)).intValue();
+                
+                DistractionLog log = new DistractionLog(source, durationMinutes, LocalDateTime.now());
+                distractionStore.save(userId, log);
+                
+                ctx.status(201).result("Success");
+            } catch(Exception e) {
+                e.printStackTrace();
+                ctx.status(500).result(e.getMessage());
+            }
+        });
+
+        // Reports API GET
+        app.get("/api/reports", ctx -> {
+            String userId = getUserId(ctx);
+            List<Map<String, Object>> reports = new java.util.ArrayList<>();
+            LocalDate today = LocalDate.now();
+            
+            for (int i = 6; i >= 0; i--) {
+                LocalDate date = today.minusDays(i);
+                List<Session> daySessions = sessionStore.loadByDate(userId, date);
+                List<DistractionLog> dayDistractions = distractionStore.loadByDate(userId, date);
+                
+                int productiveMins = daySessions.stream().mapToInt(Session::getDurationMinutes).sum();
+                int distractionMins = dayDistractions.stream().mapToInt(DistractionLog::getDurationMinutes).sum();
+                
+                int totalMins = productiveMins + distractionMins;
+                double timeScore = totalMins == 0 ? 0 : ((double) productiveMins / totalMins) * 100.0;
+                
+                // Estimate task score based on time score for historical data
+                double taskScore = totalMins == 0 ? 0 : timeScore * 0.8;
+                double productivityScore = (timeScore * 0.6) + (taskScore * 0.4);
+                
+                Map<String, Object> dayReport = new java.util.HashMap<>();
+                dayReport.put("date", date.toString());
+                dayReport.put("productivityScore", Math.round(productivityScore));
+                dayReport.put("focusTime", productiveMins / 60.0);
+                dayReport.put("distractionTime", distractionMins);
+                dayReport.put("taskCompletionRate", Math.round(taskScore));
+                reports.add(dayReport);
+            }
+            ctx.json(reports);
         });
 
         // Insights API
@@ -93,6 +268,153 @@ public class ApiServer {
                 Map.of("id", "i1", "message", "Live from Java Backend: Best signal window is 9:30 AM", "severity", "SUCCESS", "type", "SCHEDULE_OPTIMIZATION"),
                 Map.of("id", "i2", "message", "Live from Java Backend: Switched tasks too often", "severity", "WARNING", "type", "FOCUS_QUALITY")
             ));
+        });
+
+        // Auth API: Register
+        app.post("/api/auth/register", ctx -> {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, String> payload = gson.fromJson(ctx.body(), Map.class);
+                String username = payload.get("username");
+                String password = payload.get("password");
+                if (username == null || password == null) {
+                    ctx.status(400).result("Missing username or password");
+                    return;
+                }
+                
+                if (userStore.findByUsername(username).isPresent()) {
+                    ctx.status(409).result("Username already exists");
+                    return;
+                }
+                
+                String userId = java.util.UUID.randomUUID().toString();
+                // We're just using plaintext or weak hashing since this is a local app
+                User newUser = new User(userId, username, password, LocalDateTime.now());
+                userStore.save(newUser);
+                
+                ctx.status(201).json(Map.of("userId", userId, "username", username));
+            } catch (Exception e) {
+                e.printStackTrace();
+                ctx.status(500).result(e.getMessage());
+            }
+        });
+
+        // Auth API: Login
+        app.post("/api/auth/login", ctx -> {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, String> payload = gson.fromJson(ctx.body(), Map.class);
+                String username = payload.get("username");
+                String password = payload.get("password");
+                
+                java.util.Optional<User> uOpt = userStore.findByUsername(username);
+                if (uOpt.isPresent() && uOpt.get().getPasswordHash().equals(password)) {
+                    ctx.status(200).json(Map.of("userId", uOpt.get().getId(), "username", username));
+                } else {
+                    ctx.status(401).result("Invalid credentials");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                ctx.status(500).result(e.getMessage());
+            }
+        });
+
+        // Focus War Auth / Game State
+        app.post("/api/war/start", ctx -> {
+            String userId = getUserId(ctx);
+            FocusWarSession session = new FocusWarSession(userId, LocalDate.now().toString());
+            warStore.save(userId, session);
+            ctx.json(session);
+        });
+
+        app.post("/api/war/{sessionId}/distraction", ctx -> {
+            String userId = getUserId(ctx);
+            String sessionId = ctx.pathParam("sessionId");
+            java.util.Optional<FocusWarSession> opt = warStore.findAll(userId).stream()
+                .filter(s -> s.getId().equals(sessionId)).findFirst();
+                
+            if (opt.isPresent()) {
+                FocusWarSession session = opt.get();
+                int newHP = Math.max(0, session.getFocusHP() - 10);
+                session.setFocusHP(newHP);
+                session.setDistractionCount(session.getDistractionCount() + 1);
+                
+                int count = session.getDistractionCount();
+                if (count >= 10) session.setBossLevel(FocusWarSession.BossLevel.FINAL_BOSS);
+                else if (count >= 5) session.setBossLevel(FocusWarSession.BossLevel.MINI_BOSS);
+                
+                if (newHP == 0) session.setWarStatus(FocusWarSession.WarStatus.DEFEATED);
+                warStore.save(userId, session);
+                ctx.json(session);
+            } else {
+                ctx.status(404).result("Session not found");
+            }
+        });
+
+        app.post("/api/war/{sessionId}/focus-block", ctx -> {
+            String userId = getUserId(ctx);
+            String sessionId = ctx.pathParam("sessionId");
+            
+            // Allow passing parameter via form param, query param or body. Defaulting to query/form for brevity
+            String durStr = ctx.queryParam("duration");
+            if (durStr == null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Double> payload = gson.fromJson(ctx.body(), Map.class);
+                    durStr = String.valueOf(payload.getOrDefault("duration", 25.0).intValue());
+                } catch (Exception e) {
+                    durStr = "25";
+                }
+            }
+            int duration = Integer.parseInt(durStr);
+            
+            java.util.Optional<FocusWarSession> opt = warStore.findAll(userId).stream()
+                .filter(s -> s.getId().equals(sessionId)).findFirst();
+                
+            if (opt.isPresent()) {
+                FocusWarSession session = opt.get();
+                int hpRestore = duration / 5;
+                int xpGained = duration * 2;
+                session.setFocusHP(Math.min(100, session.getFocusHP() + hpRestore));
+                session.setXpEarned(session.getXpEarned() + xpGained);
+                warStore.save(userId, session);
+                ctx.json(session);
+            } else {
+                ctx.status(404).result("Session not found");
+            }
+        });
+
+        app.post("/api/war/{sessionId}/end", ctx -> {
+            String userId = getUserId(ctx);
+            String sessionId = ctx.pathParam("sessionId");
+            java.util.Optional<FocusWarSession> opt = warStore.findAll(userId).stream()
+                .filter(s -> s.getId().equals(sessionId)).findFirst();
+                
+            if (opt.isPresent()) {
+                FocusWarSession session = opt.get();
+                if (session.getWarStatus() == FocusWarSession.WarStatus.ONGOING) {
+                    session.setWarStatus(session.getFocusHP() > 0 ? FocusWarSession.WarStatus.VICTORY : FocusWarSession.WarStatus.DEFEATED);
+                    warStore.save(userId, session);
+                }
+                ctx.json(session);
+            } else {
+                ctx.status(404).result("Session not found");
+            }
+        });
+
+        app.get("/api/war/history", ctx -> {
+            String userId = getUserId(ctx);
+            ctx.json(warStore.findAll(userId));
+        });
+
+        app.get("/api/war/rank", ctx -> {
+            String userId = getUserId(ctx);
+            int totalXP = warStore.getTotalXP(userId);
+            String rank = "📋 Intern";
+            if (totalXP >= 5000) rank = "🌟 Visionary";
+            else if (totalXP >= 2000) rank = "💼 CEO";
+            else if (totalXP >= 500) rank = "📊 Manager";
+            ctx.result(rank);
         });
 
         System.out.println("API Server started on port " + port);

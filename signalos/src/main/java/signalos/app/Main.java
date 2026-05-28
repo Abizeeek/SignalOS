@@ -2,12 +2,7 @@ package signalos.app;
 
 import signalos.domain.DayPlan;
 import signalos.domain.Session;
-import signalos.persistence.CsvDayPlanStore;
-import signalos.persistence.CsvSessionStore;
-import signalos.persistence.CsvTaskStore;
-import signalos.persistence.DayPlanStore;
-import signalos.persistence.SessionStore;
-import signalos.persistence.TaskStore;
+import signalos.persistence.*;
 import signalos.report.DailyReport;
 import signalos.report.DailyReportBuilder;
 import signalos.export.ExportService;
@@ -15,6 +10,7 @@ import signalos.scoring.FounderMode;
 import signalos.scoring.ModeConfig;
 import signalos.scoring.OperatorMode;
 import signalos.scoring.MonkMode;
+import signalos.api.ApiServer;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,45 +26,52 @@ public class Main {
         java.io.File dDir = new java.io.File(dataDir);
         java.io.File[] files = dDir.listFiles();
         if (!dDir.exists() || files == null || files.length == 0) {
-            SampleDataLoader.generateSampleData(taskPath, planPath, sessionPath);
+            SampleDataLoader.generateSampleData(dataDir);
             System.out.println("Generated sample data.");
         }
 
+        DatabaseManager db = new DatabaseManager("./" + dataDir + "signalos");
+        
+        TaskStore ts = new JdbcTaskStore(db);
+        DayPlanStore ps = new JdbcDayPlanStore(db, ts);
+        SessionStore ss = new JdbcSessionStore(db);
+        DistractionStore ds = new JdbcDistractionStore(db);
+        UserStore us = new JdbcUserStore(db);
+        TransactionStore trs = new JdbcTransactionStore(db);
+        WarSessionStore wsStore = new JdbcWarSessionStore(db);
+        EventStore es = new JdbcEventStore(db);
+
         LocalDate today = LocalDate.now();
 
-        TaskStore ts = new CsvTaskStore(taskPath);
-        DayPlanStore ps = new CsvDayPlanStore(planPath, ts);
-        SessionStore ss = new CsvSessionStore(sessionPath);
-
-        DayPlan plan = ps.loadByDate(today);
-        List<Session> sessions = ss.loadByDate(today);
+        DayPlan plan = ps.loadByDate("default", today);
+        List<Session> sessions = ss.loadByDate("default", today);
 
         if (sessions.isEmpty()) {
             System.out.println("No sessions tracked for today.");
-            return;
+        } else {
+            ModeConfig modeConfig = switch(plan.getMode()) {
+                case FOUNDER -> new FounderMode();
+                case MONK -> new MonkMode();
+                default -> new OperatorMode();
+            };
+    
+            DailyReportBuilder builder = new DailyReportBuilder();
+            DailyReport report = builder.build(today, sessions, plan, modeConfig);
+    
+            ExportService export = new ExportService();
+            
+            // 1. Console
+            export.exportToConsole(report);
+            
+            // 2. CSV
+            export.exportToCsv(report, dataDir + "report_export.csv");
+            
+            // 3. JSON
+            export.exportToJson(report, dataDir + "report_export.json");
         }
-
-        ModeConfig modeConfig = switch(plan.getMode()) {
-            case FOUNDER -> new FounderMode();
-            case MONK -> new MonkMode();
-            default -> new OperatorMode();
-        };
-
-        DailyReportBuilder builder = new DailyReportBuilder();
-        DailyReport report = builder.build(today, sessions, plan, modeConfig);
-
-        ExportService export = new ExportService();
         
-        // 1. Console
-        export.exportToConsole(report);
-        
-        // 2. CSV
-        export.exportToCsv(report, dataDir + "report_export.csv");
-        
-        // 3. JSON
-        export.exportToJson(report, dataDir + "report_export.json");
         // 4. API Server
-        signalos.api.ApiServer api = new signalos.api.ApiServer(ts, ss);
+        signalos.api.ApiServer api = new signalos.api.ApiServer(ts, ss, ds, us, trs, wsStore, es);
         api.start(8080);
     }
 }

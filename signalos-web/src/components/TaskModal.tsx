@@ -22,6 +22,9 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
     priority: 'NORMAL',
     tags: [],
     estimatedDuration: 60,
+    dueDate: new Date().toISOString().split('T')[0],
+    dueTime: '',
+    description: '',
   });
 
   useEffect(() => {
@@ -135,6 +138,37 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
                   <option value="LOW" className="bg-slate-900">Low</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Date</label>
+                <input
+                  type="date"
+                  value={formData.dueDate || ''}
+                  onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 transition-all cursor-pointer"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Time</label>
+                <input
+                  type="time"
+                  value={formData.dueTime || ''}
+                  onChange={e => setFormData({ ...formData, dueTime: e.target.value })}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 transition-all cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Description</label>
+              <textarea
+                value={formData.description || ''}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 transition-all h-20 resize-none"
+                placeholder="Optional task details..."
+              />
             </div>
 
             <div className="pt-4 mt-6 border-t border-white/10 flex justify-between items-center">

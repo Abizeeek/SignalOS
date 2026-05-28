@@ -1,4 +1,4 @@
-import { LayoutDashboard, CheckSquare, Clock, Lightbulb, PieChart, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, Target, ShieldAlert, Calendar, Settings, Wallet, BarChart2, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppContext } from '../context/AppContext';
 
@@ -7,11 +7,12 @@ export function Sidebar() {
   
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Tasks', icon: CheckSquare },
-    { name: 'Sessions', icon: Clock },
-    { name: 'Insights', icon: Lightbulb },
-    { name: 'Reports', icon: PieChart },
-    { name: 'AI Coach', icon: Users },
+    { name: 'Tasks', icon: Target },
+    { name: 'Distractions', icon: ShieldAlert },
+    { name: 'Schedule', icon: Calendar },
+    { name: 'Focus War', icon: Zap },
+    { name: 'Reports', icon: BarChart2 },
+    { name: 'Finance', icon: Wallet },
     { name: 'Settings', icon: Settings },
   ];
 

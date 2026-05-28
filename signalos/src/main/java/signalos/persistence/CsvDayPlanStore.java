@@ -15,27 +15,38 @@ import java.util.Collections;
 import java.util.List;
 
 public class CsvDayPlanStore implements DayPlanStore {
-    private final Path filePath;
+    private final Path baseDir;
     private final TaskStore taskStore;
 
-    public CsvDayPlanStore(String filePath, TaskStore taskStore) {
-        this.filePath = Paths.get(filePath);
+    public CsvDayPlanStore(String baseDirStr, TaskStore taskStore) {
+        this.baseDir = Paths.get(baseDirStr);
         this.taskStore = taskStore;
         try {
-            if (!Files.exists(this.filePath.getParent())) {
-                Files.createDirectories(this.filePath.getParent());
-            }
-            if (!Files.exists(this.filePath)) {
-                Files.createFile(this.filePath);
-                Files.write(this.filePath, "date,mode,topTask1,topTask2,topTask3\n".getBytes());
+            if (!Files.exists(this.baseDir)) {
+                Files.createDirectories(this.baseDir);
             }
         } catch (IOException e) {
-            System.err.println("Could not initialize plan store: " + e.getMessage());
+            System.err.println("Could not initialize plan store base dir: " + e.getMessage());
         }
     }
 
+    private Path getFilePath(String userId) {
+        Path userDir = baseDir.resolve(userId);
+        Path file = userDir.resolve("dayplans.csv");
+        try {
+            if (!Files.exists(file)) {
+                Files.createDirectories(userDir);
+                Files.createFile(file);
+                Files.write(file, "date,mode,topTask1,topTask2,topTask3\n".getBytes());
+            }
+        } catch (IOException e) {
+            System.err.println("Could not initialize plan file for user: " + e.getMessage());
+        }
+        return file;
+    }
+
     @Override
-    public void save(DayPlan plan) {
+    public void save(String userId, DayPlan plan) {
         List<Task> top3 = plan.getTop3Priorities();
         String t1 = top3.size() > 0 ? top3.get(0).getName() : "";
         String t2 = top3.size() > 1 ? top3.get(1).getName() : "";
@@ -44,16 +55,16 @@ public class CsvDayPlanStore implements DayPlanStore {
         String line = String.format("%s,%s,%s,%s,%s\n",
                 plan.getDate(), plan.getMode(), t1, t2, t3);
         try {
-            Files.write(filePath, line.getBytes(), StandardOpenOption.APPEND);
+            Files.write(getFilePath(userId), line.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
             System.err.println("Failed to write to plan store: " + e.getMessage());
         }
     }
 
     @Override
-    public DayPlan loadByDate(LocalDate date) {
+    public DayPlan loadByDate(String userId, LocalDate date) {
         try {
-            List<String> lines = Files.readAllLines(filePath);
+            List<String> lines = Files.readAllLines(getFilePath(userId));
             for (int i = 1; i < lines.size(); i++) {
                 String[] parts = lines.get(i).split(",");
                 if (parts.length < 5) continue;

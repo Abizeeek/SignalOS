@@ -19,25 +19,36 @@ import java.util.Collections;
 import java.util.List;
 
 public class CsvSessionStore implements SessionStore {
-    private final Path filePath;
+    private final Path baseDir;
 
-    public CsvSessionStore(String filePath) {
-        this.filePath = Paths.get(filePath);
+    public CsvSessionStore(String baseDirStr) {
+        this.baseDir = Paths.get(baseDirStr);
         try {
-            if (!Files.exists(this.filePath.getParent())) {
-                Files.createDirectories(this.filePath.getParent());
-            }
-            if (!Files.exists(this.filePath)) {
-                Files.createFile(this.filePath);
-                Files.write(this.filePath, "startTime,endTime,taskName,signalType,leverageType,taskNature,priorityLevel,tags,interruptionCount,mood\n".getBytes());
+            if (!Files.exists(this.baseDir)) {
+                Files.createDirectories(this.baseDir);
             }
         } catch (IOException e) {
-            System.err.println("Could not initialize session store: " + e.getMessage());
+            System.err.println("Could not initialize session store base dir: " + e.getMessage());
         }
     }
 
+    private Path getFilePath(String userId) {
+        Path userDir = baseDir.resolve(userId);
+        Path file = userDir.resolve("sessions.csv");
+        try {
+            if (!Files.exists(file)) {
+                Files.createDirectories(userDir);
+                Files.createFile(file);
+                Files.write(file, "startTime,endTime,taskName,signalType,leverageType,taskNature,priorityLevel,tags,interruptionCount,mood\n".getBytes());
+            }
+        } catch (IOException e) {
+            System.err.println("Could not initialize session file for user: " + e.getMessage());
+        }
+        return file;
+    }
+
     @Override
-    public void save(Session session) {
+    public void save(String userId, Session session) {
         Task t = session.getTask();
         String tags = String.join(";", t.getTags());
         String line = String.format("%s,%s,%s,%s,%s,%s,%d,%s,%d,%s\n",
@@ -45,21 +56,21 @@ public class CsvSessionStore implements SessionStore {
                 t.getName(), t.getSignalType(), t.getLeverageType(), t.getTaskNature(),
                 t.getPriorityLevel(), tags, session.getInterruptionCount(), session.getMood());
         try {
-            Files.write(filePath, line.getBytes(), StandardOpenOption.APPEND);
+            Files.write(getFilePath(userId), line.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
             System.err.println("Failed to write to session store: " + e.getMessage());
         }
     }
 
     @Override
-    public List<Session> loadByDate(LocalDate date) {
-        return loadRange(date, date);
+    public List<Session> loadByDate(String userId, LocalDate date) {
+        return loadRange(userId, date, date);
     }
 
     @Override
-    public List<Session> loadRange(LocalDate from, LocalDate to) {
+    public List<Session> loadRange(String userId, LocalDate from, LocalDate to) {
         try {
-            List<String> lines = Files.readAllLines(filePath);
+            List<String> lines = Files.readAllLines(getFilePath(userId));
             List<Session> sessions = new ArrayList<>();
             for (int i = 1; i < lines.size(); i++) {
                 String[] parts = lines.get(i).split(",");

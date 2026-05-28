@@ -20,6 +20,9 @@ interface AppContextProps {
   deleteTask: (id: string) => void;
   reorderTasks: (startIndex: number, endIndex: number) => void;
   isLoading: boolean;
+  user: { id: string, username: string } | null;
+  setUser: React.Dispatch<React.SetStateAction<{ id: string, username: string } | null>>;
+  logout: () => void;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -32,24 +35,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Default fallback KPIs while loading
   const [kpis, setKpis] = useState<KPIMetrics>({
     snr: 0, leverageScore: 0, priorityIntegrity: 0, deepWorkIndex: 0,
-    effectiveFocusTime: 0, attentionResidue: 0, decisionFatigue: 0
+    effectiveFocusTime: 0, attentionResidue: 0, decisionFatigue: 0,
+    productivityScore: 0, taskCompletionRate: 0
   });
   
   const [mode, setMode] = useState<Mode>('FOUNDER');
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<{ id: string, username: string } | null>(() => {
+    const savedId = localStorage.getItem('signalos_userId');
+    const savedName = localStorage.getItem('signalos_username');
+    return savedId && savedName ? { id: savedId, username: savedName } : null;
+  });
 
-  const API_BASE = 'http://localhost:8080/api';
+  const logout = () => {
+    localStorage.removeItem('signalos_userId');
+    localStorage.removeItem('signalos_username');
+    setUser(null);
+    setTasks([]);
+    setSessions([]);
+    setInsights([]);
+      setKpis({
+        snr: 0, leverageScore: 0, priorityIntegrity: 0, deepWorkIndex: 0,
+        effectiveFocusTime: 0, attentionResidue: 0, decisionFatigue: 0,
+        productivityScore: 0, taskCompletionRate: 0
+      });
+  };
 
   useEffect(() => {
+    if (!user) return; // Don't fetch if no user
+    
+    setIsLoading(true);
     const fetchData = async () => {
       try {
+        const fetchOpts = { headers: { 'X-User-Id': user.id } };
+        const API_BASE = 'http://localhost:8080/api';
         const [tasksRes, sessionsRes, kpisRes, insightsRes] = await Promise.all([
-          fetch(`${API_BASE}/tasks`),
-          fetch(`${API_BASE}/sessions`),
-          fetch(`${API_BASE}/kpis`),
-          fetch(`${API_BASE}/insights`)
+          fetch(`${API_BASE}/tasks`, fetchOpts),
+          fetch(`${API_BASE}/sessions`, fetchOpts),
+          fetch(`${API_BASE}/kpis`, fetchOpts),
+          fetch(`${API_BASE}/insights`, fetchOpts)
         ]);
 
         if (tasksRes.ok) setTasks(await tasksRes.json());
@@ -63,7 +89,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const addTask = async (taskData: Omit<Task, 'id' | 'order'>) => {
     const newTask: Task = {
@@ -74,9 +100,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTasks([...tasks, newTask]);
     
     try {
+      const API_BASE = 'http://localhost:8080/api';
       await fetch(`${API_BASE}/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': user?.id || 'default'
+        },
         body: JSON.stringify(newTask)
       });
     } catch (e) {
@@ -109,7 +139,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       activeSession, setActiveSession,
       activeTab, setActiveTab,
       addTask, updateTask, deleteTask, reorderTasks,
-      isLoading
+      isLoading,
+      user, setUser, logout
     }}>
       {children}
     </AppContext.Provider>

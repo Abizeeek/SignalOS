@@ -2,6 +2,8 @@ import { KPICards } from './KPICards';
 import { InsightFeed } from './InsightFeed';
 import { SignalChart } from './PlaceholderChart';
 import { TaskPlanner } from './TaskPlanner';
+import { ScreenTimeChart } from './ScreenTimeChart';
+import { DistractionTracker } from './DistractionTracker';
 
 export function Dashboard() {
   return (
@@ -16,7 +18,18 @@ export function Dashboard() {
         </div>
       </div>
       
-      <TaskPlanner />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[300px] h-[300px] mt-6">
+        <div className="lg:col-span-2 h-full">
+          <ScreenTimeChart />
+        </div>
+        <div className="h-full">
+          <DistractionTracker />
+        </div>
+      </div>
+      
+      <div className="mt-6">
+        <TaskPlanner />
+      </div>
     </div>
   );
 }

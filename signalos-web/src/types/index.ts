@@ -15,6 +15,9 @@ export interface Task {
   tags: string[];
   estimatedDuration: number; // in minutes
   completed: boolean;
+  dueDate?: string;
+  dueTime?: string;
+  description?: string;
   order: number;
 }
 
@@ -35,6 +38,13 @@ export interface Insight {
   type: string;
 }
 
+export interface DistractionLog {
+  id: string;
+  source: string;
+  durationMinutes: number;
+  timestamp: string;
+}
+
 export interface KPIMetrics {
   snr: number;
   leverageScore: number;
@@ -43,4 +53,34 @@ export interface KPIMetrics {
   effectiveFocusTime: number; // in hours
   attentionResidue: number;
   decisionFatigue: number;
+  screenTime?: number;
+  distractionTime?: number;
+  productiveTime?: number;
+  productivityScore?: number;
+  taskCompletionRate?: number;
 }
+
+export interface DailyReport {
+  date: string;
+  productivityScore: number;
+  focusTime: number;
+  distractionTime: number;
+  taskCompletionRate: number;
+}
+
+export type BossLevel = 'NONE' | 'MINI_BOSS' | 'FINAL_BOSS';
+export type WarStatus = 'ONGOING' | 'VICTORY' | 'DEFEATED';
+
+export interface FocusWarSession {
+  id: string;
+  userId: string;
+  sessionDate: string;
+  focusHP: number;
+  distractionCount: number;
+  xpEarned: number;
+  bossLevel: BossLevel;
+  warStatus: WarStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
