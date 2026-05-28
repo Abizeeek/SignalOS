@@ -1,6 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAppContext } from '../context/AppContext';
 
-const data = [
+const staticData = [
   { time: '9 AM', signal: 80, noise: 20 },
   { time: '10 AM', signal: 95, noise: 10 },
   { time: '11 AM', signal: 85, noise: 30 },
@@ -12,10 +13,30 @@ const data = [
 ];
 
 export function SignalChart() {
+  const { activityMetrics } = useAppContext();
+
+  const data = activityMetrics.isRecording
+    ? [
+        ...staticData,
+        {
+          time: 'LIVE',
+          signal: activityMetrics.attentionScore,
+          noise: Math.max(0, 100 - activityMetrics.attentionScore)
+        }
+      ]
+    : staticData;
+
   return (
     <div className="glass-panel rounded-3xl p-6 h-full flex flex-col">
       <div className="mb-6 flex justify-between items-center">
-        <h3 className="text-lg font-medium text-slate-200">Focus Quality</h3>
+        <h3 className="text-lg font-medium text-slate-200 flex items-center gap-2">
+          Focus Quality
+          {activityMetrics.isRecording && (
+            <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full font-mono animate-pulse font-bold">
+              LIVE: {activityMetrics.attentionScore}%
+            </span>
+          )}
+        </h3>
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-indigo-500" />

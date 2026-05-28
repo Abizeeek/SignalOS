@@ -71,7 +71,7 @@ public class Main {
         }
         
         // 4. API Server
-        signalos.api.ApiServer api = new signalos.api.ApiServer(ts, ss, ds, us, trs, wsStore, es);
+        signalos.api.ApiServer api = new signalos.api.ApiServer(ts, ss, ds, us, trs, wsStore, es, ps);
         api.start(8080);
     }
 }

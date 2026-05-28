@@ -21,6 +21,18 @@ import java.util.Map;
 import java.util.List;
 import io.javalin.json.JsonMapper;
 import java.lang.reflect.Type;
+import signalos.persistence.DayPlanStore;
+import signalos.domain.DayPlan;
+import signalos.scoring.ScoreAggregator;
+import signalos.scoring.DayScores;
+import signalos.scoring.ModeConfig;
+import signalos.scoring.FounderMode;
+import signalos.scoring.MonkMode;
+import signalos.scoring.OperatorMode;
+import signalos.engines.ResidueAnalyzer;
+import signalos.engines.DecisionFatigueEngine;
+import signalos.insight.InsightEngine;
+import signalos.insight.InsightResult;
 
 public class ApiServer {
     private final TaskStore taskStore;
@@ -30,9 +42,10 @@ public class ApiServer {
     private final TransactionStore transactionStore;
     private final WarSessionStore warStore;
     private final EventStore eventStore;
+    private final DayPlanStore dayPlanStore;
     private final Gson gson = new Gson();
 
-    public ApiServer(TaskStore taskStore, SessionStore sessionStore, DistractionStore distractionStore, UserStore userStore, TransactionStore transactionStore, WarSessionStore warStore, EventStore eventStore) {
+    public ApiServer(TaskStore taskStore, SessionStore sessionStore, DistractionStore distractionStore, UserStore userStore, TransactionStore transactionStore, WarSessionStore warStore, EventStore eventStore, DayPlanStore dayPlanStore) {
         this.taskStore = taskStore;
         this.sessionStore = sessionStore;
         this.distractionStore = distractionStore;
@@ -40,6 +53,7 @@ public class ApiServer {
         this.transactionStore = transactionStore;
         this.warStore = warStore;
         this.eventStore = eventStore;
+        this.dayPlanStore = dayPlanStore;
     }
 
     private String getUserId(io.javalin.http.Context ctx) {
@@ -104,7 +118,27 @@ public class ApiServer {
                 String dueTime = (String) req.getOrDefault("dueTime", "");
                 String description = (String) req.getOrDefault("description", "");
                 
-                Task newTask = new Task(name, st, lt, tn, 3, List.of(), false, dueDate, dueTime, description);
+                boolean completed = false;
+                if (req.containsKey("completed")) {
+                    Object compObj = req.get("completed");
+                    if (compObj instanceof Boolean) {
+                        completed = (Boolean) compObj;
+                    } else if (compObj instanceof String) {
+                        completed = Boolean.parseBoolean((String) compObj);
+                    }
+                }
+                
+                List<String> tags = List.of();
+                if (req.containsKey("tags")) {
+                    Object tagsObj = req.get("tags");
+                    if (tagsObj instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<String> parsedTags = (List<String>) tagsObj;
+                        tags = parsedTags;
+                    }
+                }
+                
+                Task newTask = new Task(name, st, lt, tn, 3, tags, completed, dueDate, dueTime, description);
                 taskStore.save(userId, newTask);
                 
                 ctx.status(201).result("Success");
@@ -168,7 +202,35 @@ public class ApiServer {
             ctx.json(sessionStore.loadByDate(userId, LocalDate.now()));
         });
 
-        // KPIs API (return mock KPIs but actual distraction and session numbers)
+        app.post("/api/sessions", ctx -> {
+            try {
+                String userId = getUserId(ctx);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> req = gson.fromJson(ctx.body(), Map.class);
+                String taskName = (String) req.getOrDefault("taskName", "General Focus Session");
+                String startTimeStr = (String) req.get("startTime");
+                String endTimeStr = (String) req.get("endTime");
+                int interruptionCount = 0;
+                if (req.containsKey("interruptionCount")) {
+                    interruptionCount = ((Double) req.get("interruptionCount")).intValue();
+                }
+                String moodStr = (String) req.getOrDefault("mood", "NEUTRAL");
+
+                java.time.LocalDateTime start = java.time.LocalDateTime.parse(startTimeStr.substring(0, 19));
+                java.time.LocalDateTime end = java.time.LocalDateTime.parse(endTimeStr.substring(0, 19));
+                
+                signalos.domain.Task dummyTask = new signalos.domain.Task(taskName, signalos.domain.SignalType.SIGNAL, signalos.domain.LeverageType.HIGH, signalos.domain.TaskNature.BUILD, 3, List.of(), false, null, null, "");
+                Session newSession = new Session(dummyTask, start, end, interruptionCount, signalos.domain.Mood.valueOf(moodStr));
+                sessionStore.save(userId, newSession);
+                
+                ctx.status(201).result("Success");
+            } catch(Exception e) {
+                e.printStackTrace();
+                ctx.status(500).result(e.getMessage());
+            }
+        });
+
+        // KPIs API (return dynamic KPIs based on actual distraction and session numbers)
         app.get("/api/kpis", ctx -> {
             String userId = getUserId(ctx);
             LocalDate today = LocalDate.now();
@@ -188,15 +250,30 @@ public class ApiServer {
             
             double productivityScore = (timeScore * 0.6) + (taskScore * 0.4);
 
+            // Fetch dynamic scores using real ScoreAggregator!
+            DayPlan plan = dayPlanStore.loadByDate(userId, today);
+            signalos.scoring.ModeConfig modeConfig = switch(plan.getMode()) {
+                case FOUNDER -> new signalos.scoring.FounderMode();
+                case MONK -> new signalos.scoring.MonkMode();
+                default -> new signalos.scoring.OperatorMode();
+            };
+            
+            signalos.scoring.ScoreAggregator aggregator = new signalos.scoring.ScoreAggregator();
+            signalos.scoring.DayScores scores = aggregator.aggregate(todaySessions, plan, modeConfig);
+            
+            // Calculate dynamic attention residue & fatigue
+            double residueScore = new signalos.engines.ResidueAnalyzer().analyze(todaySessions, plan).residueScore;
+            double fatigueScore = new signalos.engines.DecisionFatigueEngine().analyze(todaySessions, plan).fatigueScore;
+
             Map<String, Object> kpiData = new java.util.HashMap<>();
             kpiData.put("productivityScore", Math.round(productivityScore));
-            kpiData.put("snr", 4.2);
-            kpiData.put("leverageScore", 85);
-            kpiData.put("priorityIntegrity", 92);
-            kpiData.put("deepWorkIndex", 78);
-            kpiData.put("effectiveFocusTime", productiveMins / 60.0);
-            kpiData.put("attentionResidue", 12);
-            kpiData.put("decisionFatigue", 45);
+            kpiData.put("snr", Math.round(scores.getSnr() * 10.0) / 10.0);
+            kpiData.put("leverageScore", Math.round(scores.getLeverageScore()));
+            kpiData.put("priorityIntegrity", Math.round(scores.getPriorityIntegrity()));
+            kpiData.put("deepWorkIndex", Math.round(scores.getDeepWorkIndex()));
+            kpiData.put("effectiveFocusTime", Math.round((productiveMins / 60.0) * 10.0) / 10.0);
+            kpiData.put("attentionResidue", Math.round(residueScore));
+            kpiData.put("decisionFatigue", Math.round(fatigueScore * 10.0));
             kpiData.put("screenTime", productiveMins + distractionMins);
             kpiData.put("distractionTime", distractionMins);
             kpiData.put("productiveTime", productiveMins);
@@ -262,12 +339,52 @@ public class ApiServer {
             ctx.json(reports);
         });
 
-        // Insights API
+        // Insights API (return dynamic computed insights)
         app.get("/api/insights", ctx -> {
-            ctx.json(List.of(
-                Map.of("id", "i1", "message", "Live from Java Backend: Best signal window is 9:30 AM", "severity", "SUCCESS", "type", "SCHEDULE_OPTIMIZATION"),
-                Map.of("id", "i2", "message", "Live from Java Backend: Switched tasks too often", "severity", "WARNING", "type", "FOCUS_QUALITY")
-            ));
+            String userId = getUserId(ctx);
+            LocalDate today = LocalDate.now();
+            List<Session> todaySessions = sessionStore.loadByDate(userId, today);
+            
+            DayPlan plan = dayPlanStore.loadByDate(userId, today);
+            signalos.scoring.ModeConfig modeConfig = switch(plan.getMode()) {
+                case FOUNDER -> new signalos.scoring.FounderMode();
+                case MONK -> new signalos.scoring.MonkMode();
+                default -> new signalos.scoring.OperatorMode();
+            };
+            
+            signalos.scoring.ScoreAggregator aggregator = new signalos.scoring.ScoreAggregator();
+            signalos.scoring.DayScores scores = aggregator.aggregate(todaySessions, plan, modeConfig);
+            
+            signalos.insight.InsightEngine engine = new signalos.insight.InsightEngine();
+            List<signalos.insight.InsightResult> rawInsights = engine.analyze(scores, plan);
+            
+            List<Map<String, Object>> mappedInsights = new java.util.ArrayList<>();
+            int idCounter = 1;
+            for (signalos.insight.InsightResult r : rawInsights) {
+                Map<String, Object> m = new java.util.HashMap<>();
+                m.put("id", "i-dynamic-" + idCounter++);
+                m.put("message", r.getMessage() + " Recommendation: " + r.getRecommendation());
+                
+                String sev = "INFO";
+                if (r.getSeverity() == signalos.domain.Severity.POSITIVE) sev = "SUCCESS";
+                else if (r.getSeverity() == signalos.domain.Severity.WARNING) sev = "WARNING";
+                else if (r.getSeverity() == signalos.domain.Severity.CRITICAL) sev = "WARNING";
+                
+                m.put("severity", sev);
+                m.put("type", "Executive Recommendation");
+                mappedInsights.add(m);
+            }
+            
+            if (mappedInsights.isEmpty()) {
+                mappedInsights.add(Map.of(
+                    "id", "i-default-1",
+                    "message", "Your Signal-to-Noise Ratio is healthy. Maintain deep work blocks to prevent fatigue.",
+                    "severity", "SUCCESS",
+                    "type", "FOCUS_INTEGRITY"
+                ));
+            }
+            
+            ctx.json(mappedInsights);
         });
 
         // Auth API: Register

@@ -1,6 +1,6 @@
 export type SignalType = 'SIGNAL' | 'NOISE' | 'NEUTRAL';
 export type LeverageType = 'HIGH' | 'MEDIUM' | 'LOW';
-export type TaskNature = 'DEEP_WORK' | 'SHALLOW_WORK' | 'ADMIN' | 'COMMUNICATION';
+export type TaskNature = 'BUILD' | 'MAINTAIN' | 'CONSUME' | 'WASTE';
 export type Mode = 'FOUNDER' | 'OPERATOR' | 'MONK';
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW';
 
@@ -60,6 +60,23 @@ export interface KPIMetrics {
   taskCompletionRate?: number;
 }
 
+export interface ActivityMetrics {
+  isRecording: boolean;
+  startedAt?: string;
+  elapsedSeconds: number;
+  activeSeconds: number;
+  idleSeconds: number;
+  clicks: number;
+  keyPresses: number;
+  mouseMoves: number;
+  visibilityChanges: number;
+  attentionScore: number;
+  activityRate: number;
+  capturedSurface?: string;
+  recordingUrl?: string;
+  recordedBytes?: number;
+}
+
 export interface DailyReport {
   date: string;
   productivityScore: number;
@@ -84,3 +101,18 @@ export interface FocusWarSession {
   updatedAt: string;
 }
 
+export interface LastSessionDetails {
+  taskName: string;
+  duration: number;
+  activeSeconds: number;
+  idleSeconds: number;
+  clicks: number;
+  keyPresses: number;
+  mouseMoves: number;
+  visibilityChanges: number;
+  attentionScore: number;
+  recordingUrl?: string;
+  recordedBytes?: number;
+  notes: { id: string; time: string; text: string; isBookmark: boolean }[];
+  timestamp: string;
+}

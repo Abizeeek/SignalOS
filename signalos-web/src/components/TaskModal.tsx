@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import type { Task, SignalType, LeverageType, Priority } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { X, Save, Trash2 } from 'lucide-react';
@@ -11,6 +11,7 @@ interface TaskModalProps {
 
 export function TaskModal({ task, onClose }: TaskModalProps) {
   const { addTask, updateTask, deleteTask } = useAppContext();
+  const dragControls = useDragControls();
   const isEditing = !!task;
 
   const [formData, setFormData] = useState<Partial<Task>>({
@@ -18,7 +19,7 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
     category: 'General',
     signalType: 'SIGNAL',
     leverageType: 'HIGH',
-    taskNature: 'DEEP_WORK',
+    taskNature: 'BUILD',
     priority: 'NORMAL',
     tags: [],
     estimatedDuration: 60,
@@ -52,28 +53,47 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 p-4 flex justify-center items-start pt-12 md:pt-20 pointer-events-none">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
           onClick={onClose}
         />
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-lg glass-panel rounded-3xl overflow-hidden shadow-2xl border-white/10"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          drag
+          dragControls={dragControls}
+          dragListener={false}
+          dragMomentum={true}
+          dragTransition={{ power: 0.2, timeConstant: 200 }}
+          dragElastic={0.1}
+          className="relative w-full max-w-lg glass-panel rounded-3xl overflow-hidden shadow-2xl border-white/10 max-h-[90vh] flex flex-col pointer-events-auto"
         >
-          <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
+          {/* Draggable Header */}
+          <div 
+            onPointerDown={(e) => dragControls.start(e)}
+            className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900/50 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+          >
             <h2 className="text-xl font-medium text-slate-100">{isEditing ? 'Edit Task' : 'New Task'}</h2>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-slate-400 transition-colors cursor-pointer">
+            <button 
+              onClick={onClose} 
+              onPointerDown={(e) => e.stopPropagation()}
+              className="p-2 rounded-full hover:bg-white/10 text-slate-400 transition-colors cursor-pointer"
+            >
               <X size={20} />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-slate-900/80">
+          {/* Scrollable Form Content */}
+          <form 
+            onSubmit={handleSubmit} 
+            onPointerDown={(e) => e.stopPropagation()}
+            className="p-6 space-y-4 bg-slate-900/80 overflow-y-auto custom-scrollbar flex-1"
+          >
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Task Name</label>
               <input
@@ -176,6 +196,7 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
                 <button
                   type="button"
                   onClick={handleDelete}
+                  onPointerDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-2 text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 px-4 py-2 rounded-xl transition-colors text-sm font-medium cursor-pointer"
                 >
                   <Trash2 size={16} /> Delete
@@ -186,12 +207,14 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
                 <button
                   type="button"
                   onClick={onClose}
+                  onPointerDown={(e) => e.stopPropagation()}
                   className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  onPointerDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-2 rounded-xl text-sm font-medium transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] cursor-pointer"
                 >
                   <Save size={16} /> Save

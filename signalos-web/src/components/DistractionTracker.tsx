@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import type { DistractionLog } from '../types';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { fetchWithAuth } from '../utils/api';
+import { useAppContext } from '../context/AppContext';
 
 export function DistractionTracker() {
   const [distractions, setDistractions] = useState<DistractionLog[]>([]);
   const [source, setSource] = useState('');
   const [duration, setDuration] = useState('');
   const [loading, setLoading] = useState(false);
+  const { activityMetrics, gazeStatus } = useAppContext();
 
   const fetchDistractions = async () => {
     try {
@@ -84,7 +86,44 @@ export function DistractionTracker() {
       </form>
 
       <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar space-y-3">
-        {distractions.length === 0 ? (
+        {/* LIVE FOCUS DECOY/GAZE TRACKING INJECTIONS */}
+        {activityMetrics.isRecording && activityMetrics.visibilityChanges > 0 && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 flex justify-between items-center animate-pulse">
+            <div>
+              <div className="font-bold text-rose-300 text-sm">🚨 Live Decoy Domain Switch</div>
+              <div className="text-[10px] text-rose-400 mt-1 font-mono">Warning: continuous alarm activated</div>
+            </div>
+            <div className="flex items-center gap-1 text-rose-300 text-xs font-black bg-rose-500/20 border border-rose-500/30 px-2 py-0.5 rounded-lg font-mono">
+              {activityMetrics.visibilityChanges} blurs
+            </div>
+          </div>
+        )}
+
+        {activityMetrics.isRecording && gazeStatus === 'LOOKING AWAY' && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex justify-between items-center animate-pulse">
+            <div>
+              <div className="font-bold text-amber-300 text-sm">👁️ Live Biometric Gaze Loss</div>
+              <div className="text-[10px] text-amber-400 mt-1 font-mono">Camera: user looking away</div>
+            </div>
+            <div className="text-amber-300 text-xs font-black bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg font-mono">
+              LOOKING AWAY
+            </div>
+          </div>
+        )}
+
+        {activityMetrics.isRecording && activityMetrics.idleSeconds > 0 && (
+          <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+            <div>
+              <div className="font-medium text-slate-300 text-sm">⏳ Active Inactivity Track</div>
+              <div className="text-[10px] text-slate-500 mt-1 font-mono">System: idle telemetry counting</div>
+            </div>
+            <div className="flex items-center gap-1 text-slate-300 text-xs font-black bg-slate-500/10 border border-slate-500/20 px-2 py-0.5 rounded-lg font-mono">
+              {Math.round(activityMetrics.idleSeconds)}s idle
+            </div>
+          </div>
+        )}
+
+        {distractions.length === 0 && (!activityMetrics.isRecording || (activityMetrics.visibilityChanges === 0 && activityMetrics.idleSeconds === 0 && gazeStatus !== 'LOOKING AWAY')) ? (
           <div className="text-center text-slate-500 text-sm mt-10">
             No distractions logged today. Great focus!
           </div>

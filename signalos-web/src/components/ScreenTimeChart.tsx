@@ -1,31 +1,24 @@
-import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import type { KPIMetrics } from '../types';
-import { fetchWithAuth } from '../utils/api';
+import { useAppContext } from '../context/AppContext';
 
 export function ScreenTimeChart() {
-  const [metrics, setMetrics] = useState<KPIMetrics | null>(null);
+  const { activityMetrics, kpis } = useAppContext();
 
-  useEffect(() => {
-    fetchWithAuth('/kpis')
-      .then(r => r.json())
-      .then(data => setMetrics(data))
-      .catch(e => console.error("Could not fetch KPIs for chart", e));
-  }, []);
+  const productiveMinutes = kpis.productiveTime || 0;
+  const distractedMinutes = kpis.distractionTime || 0;
+  const totalMinutes = kpis.screenTime || (productiveMinutes + distractedMinutes);
 
-  const data = metrics ? [
-    { name: 'Productive', time: metrics.productiveTime || 0 },
-    { name: 'Distracted', time: metrics.distractionTime || 0 }
-  ] : [
-    { name: 'Productive', time: 0 },
-    { name: 'Distracted', time: 0 }
+  const data = [
+    { name: 'Productive', time: productiveMinutes },
+    { name: 'Idle', time: distractedMinutes }
   ];
-
   return (
     <div className="glass-panel rounded-3xl p-6 h-full flex flex-col">
       <div className="mb-6 flex flex-col">
         <h3 className="text-lg font-medium text-slate-200">Screen Time</h3>
-        <span className="text-sm text-slate-400 mt-1">Total: {metrics?.screenTime || 0} mins</span>
+        <span className="text-sm text-slate-400 mt-1">
+          Total: {totalMinutes} mins {activityMetrics.isRecording ? '- live tracking' : ''}
+        </span>
       </div>
       
       <div className="flex-1 w-full relative min-h-0">

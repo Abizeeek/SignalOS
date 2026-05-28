@@ -1,11 +1,11 @@
-import { Search, Bell, Command, ChevronDown, LogOut } from 'lucide-react';
+import { Search, Bell, Command, ChevronDown } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useWarMode } from '../hooks/useWarMode';
 import { useEffect } from 'react';
 
 
 export function Header() {
-  const { mode, setMode, user, logout } = useAppContext();
+  const { mode, setMode, user } = useAppContext();
   const { rank, fetchRank } = useWarMode(user?.id || 'default');
 
   useEffect(() => {
@@ -70,13 +70,6 @@ export function Header() {
               className="w-full h-full rounded-full bg-slate-900"
             />
           </div>
-          <button 
-            onClick={logout}
-            className="p-2 ml-1 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-full transition-colors"
-            title="Disconnect"
-          >
-            <LogOut size={16} />
-          </button>
         </div>
       </div>
     </header>

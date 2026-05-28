@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { Play, Pause, Square, AlertCircle } from 'lucide-react';
 
 export function ActiveSession() {
-  const { activeSession, setActiveSession, sessions, setSessions, tasks, updateTask } = useAppContext();
+  const { activeSession, setActiveSession, sessions, setSessions, tasks, updateTask, refreshData, user } = useAppContext();
   const [elapsed, setElapsed] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -28,7 +28,7 @@ export function ActiveSession() {
 
   const activeTask = tasks.find(t => t.id === activeSession.taskId);
 
-  const handleStop = () => {
+  const handleStop = async () => {
     const completedSession = {
       ...activeSession,
       endTime: new Date().toISOString(),
@@ -36,8 +36,30 @@ export function ActiveSession() {
     };
     setSessions([...sessions, completedSession]);
 
+    try {
+      const API_BASE = 'http://localhost:8080/api';
+      await fetch(`${API_BASE}/sessions`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': user?.id || 'default'
+        },
+        body: JSON.stringify({
+          taskName: activeSession.taskName,
+          startTime: activeSession.startTime,
+          endTime: completedSession.endTime,
+          interruptionCount: activeSession.distractions,
+          mood: activeSession.distractions > 2 ? 'DISTRACTED' : 'FLOW'
+        })
+      });
+    } catch (e) {
+      console.error("Failed to save Pomodoro session to database:", e);
+    }
+
     if (activeTask) {
-      updateTask({ ...activeTask, completed: true });
+      await updateTask({ ...activeTask, completed: true });
+    } else {
+      await refreshData();
     }
 
     setActiveSession(null);
@@ -57,10 +79,14 @@ export function ActiveSession() {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40"
+        drag
+        dragMomentum={true}
+        dragTransition={{ power: 0.2, timeConstant: 200 }}
+        dragElastic={0.1}
+        className="fixed bottom-8 left-[calc(50%-180px)] z-40 cursor-grab active:cursor-grabbing"
       >
         <div className="glass-panel border-indigo-500/30 rounded-full px-6 py-3 flex items-center gap-6 shadow-[0_10px_40px_rgba(99,102,241,0.2)] bg-slate-900/90 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 select-none">
             <div className="relative flex items-center justify-center w-3 h-3">
               {!isPaused && <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>}
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -73,13 +99,14 @@ export function ActiveSession() {
             </div>
           </div>
 
-          <div className="text-3xl font-light tracking-tight text-white w-24 text-center text-glow">
+          <div className="text-3xl font-light tracking-tight text-white w-24 text-center text-glow select-none">
             {formatTime(elapsed)}
           </div>
 
           <div className="flex items-center gap-2 border-l border-white/10 pl-6">
             <button 
               onClick={() => setIsPaused(!isPaused)}
+              onPointerDown={(e) => e.stopPropagation()}
               className="p-3 rounded-full hover:bg-white/10 text-slate-300 transition-colors cursor-pointer"
               title={isPaused ? "Resume" : "Pause"}
             >
@@ -87,6 +114,7 @@ export function ActiveSession() {
             </button>
             <button 
               onClick={handleStop}
+              onPointerDown={(e) => e.stopPropagation()}
               className="p-3 rounded-full hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
               title="Stop Session"
             >
@@ -94,6 +122,7 @@ export function ActiveSession() {
             </button>
             <button 
               onClick={handleDistraction}
+              onPointerDown={(e) => e.stopPropagation()}
               className="p-3 rounded-full hover:bg-amber-500/20 text-amber-400 transition-colors relative cursor-pointer"
               title="Log Distraction"
             >

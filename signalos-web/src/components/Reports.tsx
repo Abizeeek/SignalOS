@@ -81,7 +81,7 @@ export const Reports: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-8 space-y-8 pb-32 animate-fade-in relative">
+    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden p-8 space-y-8 pb-32 animate-fade-in custom-scrollbar">
       {/* Background Decorative Blur */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />

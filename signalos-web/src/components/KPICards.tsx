@@ -21,18 +21,22 @@ function Counter({ value, decimals = 0 }: { value: number; decimals?: number }) 
   return <span>{displayValue.toFixed(decimals)}</span>;
 }
 
-export function KPICards() {
+interface KPICardsProps {
+  onCardClick: (type: string, displayVal: string | number) => void;
+}
+
+export function KPICards({ onCardClick }: KPICardsProps) {
   const { kpis } = useAppContext();
 
   const metrics = [
-    { name: 'Productivity Score', value: kpis.productivityScore || 0, decimals: 0, icon: Trophy, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
-    { name: 'Task Completion', value: kpis.taskCompletionRate || 0, decimals: 0, icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', suffix: '%' },
-    { name: 'Signal-to-Noise', value: kpis.snr, decimals: 1, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-    { name: 'Leverage Score', value: kpis.leverageScore, decimals: 0, icon: Zap, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-    { name: 'Priority Integrity', value: kpis.priorityIntegrity, decimals: 0, icon: Target, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-    { name: 'Deep Work Index', value: kpis.deepWorkIndex, decimals: 0, icon: Brain, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-    { name: 'Effective Focus', value: kpis.effectiveFocusTime, decimals: 1, icon: Clock, color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', suffix: 'h' },
-    { name: 'Decision Fatigue', value: kpis.decisionFatigue, decimals: 0, icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+    { key: 'productivityScore', name: 'Productivity Score', value: kpis.productivityScore || 0, decimals: 0, icon: Trophy, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
+    { key: 'taskCompletionRate', name: 'Task Completion', value: kpis.taskCompletionRate || 0, decimals: 0, icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', suffix: '%' },
+    { key: 'snr', name: 'Signal-to-Noise', value: kpis.snr || 0, decimals: 1, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+    { key: 'leverageScore', name: 'Leverage Score', value: kpis.leverageScore || 0, decimals: 0, icon: Zap, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+    { key: 'priorityIntegrity', name: 'Priority Integrity', value: kpis.priorityIntegrity || 0, decimals: 0, icon: Target, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+    { key: 'deepWorkIndex', name: 'Deep Work Index', value: kpis.deepWorkIndex || 0, decimals: 0, icon: Brain, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+    { key: 'effectiveFocusTime', name: 'Effective Focus', value: kpis.effectiveFocusTime || 0, decimals: 1, icon: Clock, color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', suffix: 'h' },
+    { key: 'decisionFatigue', name: 'Decision Fatigue', value: kpis.decisionFatigue || 0, decimals: 0, icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
   ];
 
   return (
@@ -43,12 +47,13 @@ export function KPICards() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: i * 0.1 }}
           key={m.name}
+          onClick={() => onCardClick(m.key, m.value.toFixed(m.decimals) + (m.suffix || ''))}
           className={clsx(
-            "glass-panel rounded-2xl p-5 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group border cursor-default",
+            "glass-panel rounded-2xl p-5 hover:-translate-y-1 hover:border-white/20 active:scale-95 transition-all duration-300 relative overflow-hidden group border cursor-pointer select-none",
             m.border
           )}
         >
-          <div className={clsx("absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full -mr-10 -mt-10 opacity-20 group-hover:opacity-40 transition-opacity", m.bg)} />
+          <div className={clsx("absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full -mr-10 -mt-10 opacity-20 group-hover:opacity-45 transition-opacity", m.bg)} />
           
           <div className="flex justify-between items-start mb-4 relative z-10">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{m.name}</h3>

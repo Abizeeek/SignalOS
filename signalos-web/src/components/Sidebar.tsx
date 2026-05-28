@@ -1,4 +1,4 @@
-import { LayoutDashboard, Target, ShieldAlert, Calendar, Settings, Wallet, BarChart2, Zap } from 'lucide-react';
+import { LayoutDashboard, Target, ShieldAlert, Calendar, Settings, Wallet, BarChart2, Zap, MonitorDot, History } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppContext } from '../context/AppContext';
 
@@ -9,6 +9,8 @@ export function Sidebar() {
     { name: 'Dashboard', icon: LayoutDashboard },
     { name: 'Tasks', icon: Target },
     { name: 'Distractions', icon: ShieldAlert },
+    { name: 'Activity', icon: MonitorDot },
+    { name: 'History', icon: History },
     { name: 'Schedule', icon: Calendar },
     { name: 'Focus War', icon: Zap },
     { name: 'Reports', icon: BarChart2 },

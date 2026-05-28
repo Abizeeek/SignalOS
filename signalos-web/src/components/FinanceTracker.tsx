@@ -87,7 +87,7 @@ export function FinanceTracker() {
   };
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-20">
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-36">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-indigo-400">

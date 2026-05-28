@@ -30,8 +30,6 @@ export function Schedule() {
 
   const fetchEvents = async () => {
     try {
-      const year = currentDate.getFullYear();
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
       // For simplicity, we can fetch for the whole month or just as we view. 
       // Current API takes a specific date. Let's fetch for the selected date if modal is open, 
       // or we can fetch all and filter client side. 
